@@ -1,4 +1,9 @@
-# SIXsens
+# CorteX (SIXsens): AI Workflow Assistant
+
+Built at START Hack Zurich 2026 as a team project. The team repository is [kaspro-coder/six_start](https://github.com/kaspro-coder/six_start). This copy is a source snapshot: case-partner documents, runtime knowledge data and the vector store are not included.
+
+---
+
 
 SIXsens is an institutional desktop assistant for SIX Financial Information.
 It captures expert workflows, retrieves official and tacit knowledge, answers
