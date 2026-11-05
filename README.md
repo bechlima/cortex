@@ -1,205 +1,58 @@
-# CorteX (SIXsens): AI Workflow Assistant
+# CorteX: AI Workflow Assistant
 
-Built at START Hack Zurich 2026 as a team project. The team repository is [kaspro-coder/six_start](https://github.com/kaspro-coder/six_start). This copy is a source snapshot: case-partner documents, runtime knowledge data and the vector store are not included.
+A desktop assistant that keeps institutional knowledge from walking out the door. It records how experts do their work, answers colleagues' questions with cited sources, and admits when it doesn't know, routing those cases to the right expert instead of guessing.
 
----
+Built at **START Hack Zurich 2026** for the SIX Financial Information case (the prototype is called *SIXsens* in the code). It's a team project; the original team repository is [kaspro-coder/six_start](https://github.com/kaspro-coder/six_start).
 
+## Features
+- **Grounded answers with citations:** retrieval-augmented generation over official rulebooks (PDF) and tacit expert notes (DOCX), with inline citations that open the cited page with the passage highlighted.
+- **Honest confidence:** answers are scored on whether the evidence actually covers the question. Anything below a hard 60% threshold is escalated to an expert instead of being answered with made-up guidance.
+- **Expert routing:** an expert directory matches low-confidence questions to the right subject-matter expert (SFDR, ESG, SWIFT, FATCA, settlement, …) and pre-fills a knowledge request.
+- **Knowledge requests:** an inbox where experts answer escalated questions, and the answers flow back into the knowledge base.
+- **Workflow capture:** recorded work sessions (rrweb events) turn into step-by-step procedures. In this prototype the summary step is mocked.
+- **Desktop overlay:** a React UI in an Electron window that collapses to a small floating pill.
 
-SIXsens is an institutional desktop assistant for SIX Financial Information.
-It captures expert workflows, retrieves official and tacit knowledge, answers
-with citations, and routes low-confidence cases to the right SME.
+## Tech stack
+| Layer | Tools |
+|---|---|
+| Frontend | React, Vite, Tailwind CSS, Radix UI, Electron |
+| Backend | Python, FastAPI, Pydantic |
+| Retrieval | LangChain, ChromaDB, sentence-transformers (`all-MiniLM-L6-v2`), PyPDF, PyMuPDF |
+| Generation | Anthropic Claude API (`anthropic`, `langchain-anthropic`) |
 
-## What Is In This Version
-
-- React/Vite frontend wrapped in an Electron desktop overlay.
-- FastAPI backend with workflow capture, RAG retrieval, grounded answers, expert routing, and knowledge request handling.
-- Cluely/Raycast-style overlay behavior with a compact floating pill.
-- Perplexity-style inline citations with document source cards and expert cards.
-- Hard confidence threshold: answers below 60% become expert escalations instead of hallucinated guidance.
-- Expert directory routing for domains like SFDR, ESG, SWIFT, FATCA, settlement, and Master Data opening.
-
-## Project Structure
-
-```text
-six_start/
-  backend/
-    main.py                 FastAPI app and API routes
-    retrieval_engine.py     Chroma retrieval helpers
-    data_ingestion.py       PDF/DOCX ingestion into Chroma
-    context_engine.py       User context and query planning
-    escalation.py           Confidence scoring and escalation logic
-    knowledge_store.py      Experts, knowledge items, requests, Chroma persistence
-    SIX_Git_Sources/        Source PDFs and DOCX files for ingestion
-    chroma_db/              Local vector database after ingestion
-  frontend/
-    electron/               Electron shell, preload bridge, dev launcher
-    src/                    React app
-  package.json              Root helper scripts
+## Project layout
+```
+backend/
+  main.py              FastAPI app and API routes
+  data_ingestion.py    PDF/DOCX → chunks → Chroma vector store
+  retrieval_engine.py  dual-context retrieval (official + tacit sources)
+  escalation.py        confidence scoring and escalation decisions
+  knowledge_store.py   experts, knowledge requests, routing
+  context_engine.py    user context and query planning
+  agent.py             LangChain action-routing agent
+frontend/
+  src/components/      chat, citations, document viewer, expert inbox, …
+  electron/            desktop overlay shell
 ```
 
-## Requirements
-
-Backend:
-
-- Python 3.11+
-- FastAPI / Uvicorn
-- LangChain, Chroma, HuggingFace embeddings stack for RAG
-- Optional: `ANTHROPIC_API_KEY` in `backend/.env` for Claude-generated answers
-
-Frontend:
-
-- Node.js + npm
-- Electron dependencies already declared in `frontend/package.json`
-
-## First-Time Setup
-
-Install Python dependencies:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\backend
+## Running locally
+```bash
+# Backend
+cd backend
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-Install frontend dependencies:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\frontend
-npm install
-```
-
-Optional LLM key:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\backend
-New-Item -ItemType File -Path .env
-```
-
-Then add:
-
-```text
-ANTHROPIC_API_KEY=your_key_here
-```
-
-## Build The Vector Store
-
-Put the SIX source PDFs and DOCX files in:
-
-```text
-backend/SIX_Git_Sources/
-```
-
-Then run:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\backend
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
+# optional: put your own PDFs/DOCX in backend/SIX_Git_Sources/, then build the index
 python data_ingestion.py
+uvicorn main:app --reload --port 8000
+
+# Frontend (in another terminal, from the repo root)
+npm --prefix frontend install
+npm run electron:dev        # desktop overlay
+# or: npm run frontend:dev  # browser only, http://localhost:5173
 ```
 
-This creates or updates:
+The app degrades gracefully. With no vector store it shows demo behaviour, and with no API key it returns the retrieved passages without a written answer.
 
-```text
-backend/chroma_db/
-```
-
-PDF files are tagged as official rulebook knowledge. DOCX files are tagged as tacit expert knowledge.
-
-## Run The App
-
-Terminal 1, backend:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\backend
-python main.py
-```
-
-The backend runs on:
-
-```text
-http://127.0.0.1:8000
-```
-
-Terminal 2, Electron overlay:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start
-npm run electron:dev
-```
-
-This starts Vite and opens the Electron assistant overlay.
-
-Useful shortcuts:
-
-- Windows/Linux: `Ctrl+Space` or `Ctrl+Shift+K`
-- macOS: `Cmd+K` or `Cmd+Shift+Space`
-- `Esc` inside the overlay compacts it into the floating pill.
-
-The minimized state is a small white SIXsens floating pill. The `-` button compacts the overlay, the expand button restores it, and `X` closes the app.
-
-## Main API Endpoints
-
-```text
-GET  /health
-POST /api/process-workflow
-POST /api/ask
-POST /api/agent
-POST /api/answer
-POST /api/expert-matches
-GET  /api/experts
-GET  /api/knowledge
-GET  /api/knowledge-requests
-POST /api/knowledge-requests
-POST /api/knowledge-requests/{id}/resolve
-```
-
-Important behavior:
-
-- `/api/answer` returns grounded answers with `document_citations` and `expert_citations`.
-- If confidence is below 60%, `/api/answer` returns `engine: "escalation_needed"`.
-- `/api/expert-matches` returns suggested SMEs while the user types.
-- Resolving a knowledge request stores reusable knowledge and best-effort embeds the expert resolution into Chroma.
-
-## How The System Works
-
-1. Experts use the Expert Space to capture workflows with `rrweb`.
-2. Captured workflows are sent to `POST /api/process-workflow`.
-3. The backend turns the trace into a reusable step-by-step procedure.
-4. Employees ask questions in the SIXsens overlay.
-5. The backend plans the query using context, selected text/clipboard context, target domains, and expert mappings.
-6. RAG retrieves official rulebook chunks and tacit expert workflow chunks.
-7. The answer is returned with inline citations like `[1]`.
-8. The frontend renders those citations as clickable badges with source metadata.
-9. If evidence is weak, the answer is blocked and a knowledge request is prepared for the right expert.
-10. When an expert resolves the request, the new resolution becomes reusable knowledge.
-
-## Testing
-
-Backend smoke test:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\backend
-python -c "from fastapi.testclient import TestClient; import main; c=TestClient(main.app); print(c.post('/api/expert-matches', json={'query':'SWIFT settlement error'}).json()['experts'][0]['expert_name']); r=c.post('/api/answer', json={'question':'zzzz totally unknown process with no evidence', 'context':{}}).json(); print(r['engine'], r['display_format'], r.get('confidence_score'))"
-```
-
-Expected output includes:
-
-```text
-Anna Keller
-escalation_needed escalation_needed 0.0
-```
-
-Frontend build:
-
-```powershell
-cd D:\Users\Houssam\Start_Hack_2026\six_start\frontend
-npm run build
-```
-
-You may see a Vite chunk-size warning. That is not a failure.
-
-## Notes For Teammates
-
-- Work inside `six_start`; ignore the older MVP folder.
-- Do not commit `backend/data/persisted_knowledge.json` unless the team decides runtime knowledge state should be shared.
-- If Vite reports that port `5173` is busy, stop the old Vite/Electron process and rerun `npm run electron:dev`.
-- If Git reports a stale `.git/index.lock`, make sure no commit/editor is open, then remove the lock and retry.
-- The app is designed to degrade gracefully. Without a vector store or LLM key, it still opens and shows fallback/demo behavior.
+## About this copy
+This is a source snapshot. The case partner's documents, the runtime employee and knowledge data, and the vector store are deliberately left out. Use your own sample documents to try it.
